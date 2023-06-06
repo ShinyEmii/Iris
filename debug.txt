@@ -1,0 +1,12 @@
+-------| Timers |-------
+main.cpp : 13 | Window setup | 82.39ms
+main.cpp : 18 | Main loop | 23327.23ms
+main.cpp : 71 | Renderer cleanup | 8.74ms
+main.cpp : 9 | main | 23898.21ms
+-------| Logs |-------
+2023-06-05 19:15:59 | INFO | main.cpp : 14 | Setting up window!
+2023-06-05 19:15:59 | INFO | Renderer.h : 59 | Created new window ( "EXAMPLE APP" )  with resolution 928x793
+2023-06-05 19:15:59 | INFO | Texture.h : 86 | Texture ( "assets/textures/bg.png" ) loaded!
+2023-06-05 19:15:59 | INFO | Texture.h : 86 | Texture ( "assets/textures/LightBandit.png" ) loaded!
+2023-06-05 19:15:59 | INFO | Program.h : 62 | Program ( "assets/shaders/vertex.glsl", "assets/shaders/frag.glsl" ) loaded!
+2023-06-05 19:15:59 | INFO | Program.h : 62 | Program ( "assets/shaders/sheetVertex.glsl", "assets/shaders/sheetFrag.glsl" ) loaded!
