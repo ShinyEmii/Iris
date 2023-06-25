@@ -8,49 +8,44 @@ namespace Iris {
 	namespace Scene {
 		class Sprite {
 		public:
-			Sprite(Iris::Renderer::Texture& tex, glm::vec2 scale = { 1.0f, 1.0f }) : m_tex(&tex), m_scale(scale) {};
+			Sprite(Iris::Renderer::Texture& tex, glm::vec2 scale = { 1.0f, 1.0f }, glm::vec2 anchorPoint = { 0.5f, 0.5f }) : m_tex(&tex), m_scale(scale), m_rotation(0.0f), m_anchorPoint(anchorPoint) {};
 			void draw(glm::vec2 pos, bool flip = false) {
+				if (Iris::Renderer::s_currentProgram == nullptr) {
+					WARN("Tried drawing without using any Program");
+					return;
+				}
 				Iris::Renderer::s_currentProgram->setInt("albedo", 0);
 				m_tex->bind(0);
-				glm::mat4x4 model = glm::mat4x4(1.0f);
-				model = glm::translate(model, glm::vec3(pos.x, pos.y, 0.0f));
-				model = glm::scale(model, glm::vec3(m_scale.x, m_scale.y, 1.0f));
+				glm::mat4x4 trans = glm::translate(glm::mat4x4(1.0f), glm::vec3(pos.x, pos.y, 0.0f));
+				glm::mat4x4 scale = glm::scale(glm::mat4x4(1.0f), glm::vec3(m_scale.x, m_scale.y, 1.0f));
+				glm::mat4x4 rotation = glm::rotate(glm::mat4x4(1.0f), glm::radians(m_rotation), glm::vec3(0.0f, 0.0f, 1.0f));
+				glm::mat4x4 rotationAnchorOffset = glm::translate(glm::mat4x4(1.0f), glm::vec3(-m_anchorPoint.x, -m_anchorPoint.y, 0.0));
+				glm::mat4x4 restoreOffset = glm::translate(glm::mat4x4(1.0f), glm::vec3(m_anchorPoint.x, m_anchorPoint.y, 0.0));
+				glm::mat4x4 model = trans * scale * restoreOffset * rotation * rotationAnchorOffset * glm::mat4x4(1.0f);
 				Iris::Renderer::s_currentProgram->setInt("flip", flip);
 				Iris::Renderer::s_currentProgram->setMatrix4x4("model", model);
-				glEnableVertexAttribArray(0);
-				glBindBuffer(GL_ARRAY_BUFFER, Iris::Renderer::s_quad);
-				glVertexAttribPointer(
-					0,
-					3,
-					GL_FLOAT,
-					GL_FALSE,
-					sizeof(float) * 5,
-					(void*)0
-				);
-				glEnableVertexAttribArray(1);
-				glVertexAttribPointer(
-					1,
-					2,
-					GL_FLOAT,
-					GL_FALSE,
-					sizeof(float) * 5,
-					(void*)(sizeof(float) * 3)
-				);
-				glDrawArrays(GL_TRIANGLES, 0, 6);
-				glDisableVertexAttribArray(0);
-				glDisableVertexAttribArray(1);
+				if (Iris::Renderer::s_quad == nullptr) {
+					ERROR("Quad mesh hasn't been initialized!");
+					return;
+				}
+				Iris::Renderer::s_quad->draw();
 			};
-			void drawCentered(glm::vec2 pos, bool flip = false) {
-				draw(pos - m_scale / 2.0f, flip);
-			}
 			void setScale(glm::vec2 scale) {
 				m_scale = scale;
 			}
 			glm::vec2& getScale() {
 				return m_scale;
 			}
+			void setRotation(f32 rotation) {
+				m_rotation = rotation;
+			}
+			f32& getRotation() {
+				return m_rotation;
+			}
 		private:
+			f32 m_rotation;
 			glm::vec2 m_scale;
+			glm::vec2 m_anchorPoint;
 			Iris::Renderer::Texture* m_tex;
 		};
 	}

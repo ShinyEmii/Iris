@@ -28,6 +28,7 @@ namespace Iris {
 					char* source = new char[(u64)size + 1];
 					fread_s(source, (u64)size + 1, size, 1, src);
 					source[size] = '\0';
+					fclose(src);
 					glShaderSource(id, 1, &source, NULL);
 					glCompileShader(id);
 					glGetShaderiv(id, GL_COMPILE_STATUS, &Result);
@@ -71,10 +72,10 @@ namespace Iris {
 			void setMatrix4x4(const char* location, glm::mat4x4 value) {
 				glUniformMatrix4fv(glGetUniformLocation(m_id, location), 1, GL_FALSE, &value[0][0]);
 			}
-			void setInt(const char* location, int value) {
+			void setInt(const char* location, i32 value) {
 				glUniform1i(glGetUniformLocation(m_id, location), value);
 			}
-			void setFloat(const char* location, float value) {
+			void setFloat(const char* location, f32 value) {
 				glUniform1f(glGetUniformLocation(m_id, location), value);
 			}
 			void setVec3(const char* location, glm::vec3 value) {
@@ -84,7 +85,7 @@ namespace Iris {
 				glUniform2fv(glGetUniformLocation(m_id, location), 1, &value[0]);
 			}
 		private:
-			uint32_t m_id;
+			u32 m_id;
 		};
 	}
 }

@@ -7,8 +7,14 @@ namespace Iris {
 	namespace Scene {
 		class Camera {
 		public:
-			Camera(glm::mat4x4 projection) : m_proj(projection), m_pos(0.0f, 0.0f) {};
+			Camera(f32 width, f32 height) : m_width(width), m_height(height), m_pos(0.0f, 0.0f) {
+				m_proj = glm::ortho(0.0f, m_width, m_height, 0.0f, 0.1f, 100.0f);
+			}
 			void use() {
+				if (Iris::Renderer::s_currentProgram == nullptr) {
+					ERROR("Tried using camera without using Program");
+					return;
+				}
 				Iris::Renderer::s_currentProgram->setMatrix4x4("proj", getProjectionMatrix());
 				Iris::Renderer::s_currentProgram->setMatrix4x4("view", getViewMatrix());
 			}
@@ -24,15 +30,19 @@ namespace Iris {
 			glm::vec2& getPos() {
 				return m_pos;
 			}
+			f32 getWidth() {
+				return m_width;
+			}
+			f32 getHeight() {
+				return m_height;
+			}
 			void updatePos(glm::vec2 pos) {
 				m_pos = pos;
 			}
 		private:
+			f32 m_width, m_height;
 			glm::vec2 m_pos;
 			glm::mat4x4 m_proj;
 		};
-		Camera createCamera(float width, float height) {
-			return Camera(glm::ortho(-width / 2.0f, width / 2.0f, -height / 2.0f, height / 2.0f, 0.1f, 100.0f));
-		}
 	}
 }

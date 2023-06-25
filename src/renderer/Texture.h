@@ -8,23 +8,21 @@
 namespace Iris {
 	namespace Renderer {
 		enum class TextureFiltering {
-			Linear = 0,
-			Nearest = 1
+			LINEAR,
+			NEAREST
 		};
 		enum class TextureWrapping {
-			Repeat = 0,
-			Mirrored = 1,
-			Clamp = 2
+			REPEAT,
+			MIRRORED,
+			CLAMP
 		};
 		class Texture {
 		public:
-			Texture(const char* path, TextureFiltering filter = TextureFiltering::Linear, TextureWrapping wrap = TextureWrapping::Repeat, u8 channels = 0)
+			Texture(const char* path, TextureFiltering filter = TextureFiltering::LINEAR, TextureWrapping wrap = TextureWrapping::CLAMP, u8 channels = 0)
 			: m_filter(filter), m_wrap(wrap) {
-				bool error = false;
-				stbi_set_flip_vertically_on_load(1);
 				unsigned char* stbiData = stbi_load(path, (int*)&m_width, (int*)&m_height, (int*)&m_depth, channels);
 				if (stbiData == nullptr) {
-					ERROR("Failed to load texture ( \"{}\" ). Using default texture. Invalid path?", path);
+					ERROR("Failed to load texture ( \"{}\" ). Invalid path? Using default checkerboard texture.", path);
 					unsigned char missingTexture[16] = { 255, 0, 255, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 0, 255, 255 };
 					stbiData = new unsigned char[16];
 					memcpy(stbiData, missingTexture, 16);
@@ -57,26 +55,26 @@ namespace Iris {
 				}
 				switch (m_wrap) {
 					default:
-					case TextureWrapping::Repeat:
+					case TextureWrapping::REPEAT:
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 						break;
-					case TextureWrapping::Mirrored:
+					case TextureWrapping::MIRRORED:
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 						break;
-					case TextureWrapping::Clamp:
+					case TextureWrapping::CLAMP:
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 						break;
 				}
 				switch (m_filter) {
 					default:
-					case TextureFiltering::Linear:
+					case TextureFiltering::LINEAR:
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 						break;
-					case TextureFiltering::Nearest:
+					case TextureFiltering::NEAREST:
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 						break;
@@ -92,7 +90,7 @@ namespace Iris {
 				glActiveTexture(GL_TEXTURE0 + id);
 				glBindTexture(GL_TEXTURE_2D, m_texture);
 			}
-			uint32_t getTexture() {
+			u32 getTexture() {
 				return m_texture;
 			}
 			int getWidth() {
@@ -109,15 +107,15 @@ namespace Iris {
 				m_wrap = wrap;
 				switch (m_wrap) {
 				default:
-				case TextureWrapping::Repeat:
+				case TextureWrapping::REPEAT:
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 					break;
-				case TextureWrapping::Mirrored:
+				case TextureWrapping::MIRRORED:
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 					break;
-				case TextureWrapping::Clamp:
+				case TextureWrapping::CLAMP:
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 					break;
@@ -129,11 +127,11 @@ namespace Iris {
 				m_filter = filter;
 				switch (m_filter) {
 				default:
-				case TextureFiltering::Linear:
+				case TextureFiltering::LINEAR:
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 					break;
-				case TextureFiltering::Nearest:
+				case TextureFiltering::NEAREST:
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 					break;

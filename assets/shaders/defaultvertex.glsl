@@ -9,5 +9,5 @@ out vec2 UV;
 void main() {
     mat4 mvp = proj * view * model;
     gl_Position = mvp * vec4(vertex, 1.0f);
-    UV = uvs;
+    UV = clamp(uvs, vec2(0.0f), vec2(1.0f));;
 }
