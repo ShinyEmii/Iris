@@ -87,7 +87,7 @@ namespace Iris {
 				glEnable(GL_BLEND);
 				refreshWindow();
 				glClearColor(0.0, 0.0, 0.0, 0.0);
-				INFO("Created new window ( \"{}\" )  with resolution {}x{}", name, width, height);
+				INFO("Created new window ( \"{}\" ) with resolution {}x{}", name, width, height);
 			}
 			~Window() {
 				if (m_window == nullptr) {

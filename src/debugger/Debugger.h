@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <chrono>
+#include <unordered_map>
 #include <format>
 #include "../utils/units.h"
 #ifdef IRIS_DEBUG
@@ -12,18 +13,19 @@
 #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #endif
 namespace Iris {
-	struct TimerData {
-		std::chrono::system_clock::time_point start, end;
-		const char* fileName, * timerName;
-		i32 line;
-	};
-	struct LogData {
-		std::chrono::system_clock::time_point time;
-		const char* fileName, * level, * message;
-		i32 line;
-	};
 	namespace Debugger {
-		static std::vector<TimerData> timerData;
+		struct TimerData {
+			f64 length;
+			const char* fileName;
+			i32 line;
+			u64 count;
+		};
+		struct LogData {
+			std::chrono::system_clock::time_point time;
+			const char* fileName, * level, * message;
+			i32 line;
+		};
+		static std::unordered_map<const char*, TimerData> timerData;
 		static std::vector<LogData> logData;
 		void save(const char* fileName) {
 			FILE* f;
@@ -33,9 +35,15 @@ namespace Iris {
 				return;
 			}
 			fprintf_s(f, "-------| Timers |-------\n");
-			for (const TimerData& data : timerData) {
-				fprintf_s(f, "%s : %d | %s | %3.2fms\n", data.fileName, data.line, data.timerName, (std::chrono::duration<float, std::milli>(data.end - data.start)).count());
-				printf("%s : %d | %s | %3.2fms\n", data.fileName, data.line, data.timerName, (std::chrono::duration<float, std::milli>(data.end - data.start)).count());
+			for (auto data : timerData) {
+				if (data.second.count > 1) {
+					fprintf_s(f, "%s : %d | %s | %3.2fms in %llu samples\n", data.second.fileName, data.second.line, data.first, data.second.length / data.second.count, data.second.count);
+					printf("%s : %d | %s | %3.2fms in %llu samples\n", data.second.fileName, data.second.line, data.first, data.second.length / data.second.count, data.second.count);
+				}
+				else {
+					fprintf_s(f, "%s : %d | %s | %3.2fms\n", data.second.fileName, data.second.line, data.first, data.second.length);
+					printf("%s : %d | %s | %3.2fms\n", data.second.fileName, data.second.line, data.first, data.second.length);
+				}
 			}
 			fprintf_s(f, "-------| Logs |-------\n");
 			for (const LogData& data : logData) {
@@ -53,30 +61,35 @@ namespace Iris {
 			timerData.clear();
 			logData.clear();
 		}
-	}
-	template <typename... Args>
-	void LOG(const char* fileName, i32 line, const char* name, const char* level, const char* format, Args&&... args) {
-		Debugger::logData.emplace_back(std::chrono::system_clock::now(), fileName, level, _strdup(std::vformat(format, std::make_format_args(args...)).c_str()), line);
-	}
-	class Timer {
-	public:
-		Timer(const char* fileName, i32 line, const char* name)
-			: m_start(std::chrono::system_clock::now()), m_fileName(fileName), m_line(line), m_timerName(name)
-		{}
-		~Timer() {
-			Debugger::timerData.emplace_back(m_start, std::chrono::system_clock::now(), m_fileName, m_timerName, m_line);
+		template <typename... Args>
+		void LOG(const char* fileName, i32 line, const char* name, const char* level, const char* format, Args&&... args) {
+			logData.emplace_back(std::chrono::system_clock::now(), fileName, level, _strdup(std::vformat(format, std::make_format_args(args...)).c_str()), line);
 		}
-	private:
-		std::chrono::system_clock::time_point m_start;
-		const char* m_fileName, * m_timerName;
-		i32 m_line;
-	};
+		class Timer {
+		public:
+			Timer(const char* fileName, i32 line, const char* name)
+				: m_start(std::chrono::system_clock::now()), m_fileName(fileName), m_line(line), m_timerName(name) {};
+			~Timer() {
+				if (timerData.contains(m_timerName)) {
+					timerData.at(m_timerName).count++;
+					timerData.at(m_timerName).length += (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count();
+				}
+				else {
+					timerData.emplace(m_timerName, TimerData{ (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count(), m_fileName, m_line, 1 });
+				}
+			}
+		private:
+			std::chrono::system_clock::time_point m_start;
+			const char* m_fileName, * m_timerName;
+			i32 m_line;
+		};
+	}
 }
-#define IRIS_TIME_SCOPE(NAME) Iris::Timer scopeTimer##line{__FILENAME__ , __LINE__, NAME}
-#define IRIS_TIME_FUNCTION() Iris::Timer funcTimer##line{__FILENAME__ , __LINE__, __FUNC_NAME__}
-#define INFO(FORMAT, ...) Iris::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "INFO", FORMAT, __VA_ARGS__); 
-#define WARN(FORMAT, ...) Iris::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "WARN", FORMAT, __VA_ARGS__); 
-#define ERROR(FORMAT, ...) Iris::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "ERROR", FORMAT, __VA_ARGS__); 
+#define IRIS_TIME_SCOPE(NAME) Iris::Debugger::Timer scopeTimer##line{__FILENAME__ , __LINE__, NAME}
+#define IRIS_TIME_FUNCTION() Iris::Debugger::Timer funcTimer##line{__FILENAME__ , __LINE__, __FUNC_NAME__}
+#define INFO(FORMAT, ...) Iris::Debugger::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "INFO", FORMAT, __VA_ARGS__); 
+#define WARN(FORMAT, ...) Iris::Debugger::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "WARN", FORMAT, __VA_ARGS__); 
+#define ERROR(FORMAT, ...) Iris::Debugger::LOG(__FILENAME__ , __LINE__, __FUNC_NAME__, "ERROR", FORMAT, __VA_ARGS__); 
 #else
 #define IRIS_TIME_SCOPE(NAME) ;
 #define IRIS_TIME_FUNCTION() ;

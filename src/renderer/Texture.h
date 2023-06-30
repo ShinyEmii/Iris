@@ -90,16 +90,16 @@ namespace Iris {
 				glActiveTexture(GL_TEXTURE0 + id);
 				glBindTexture(GL_TEXTURE_2D, m_texture);
 			}
-			u32 getTexture() {
+			GLuint getTexture() {
 				return m_texture;
 			}
-			int getWidth() {
+			i32 getWidth() {
 				return m_width;
 			}
-			int getHeight() {
+			i32 getHeight() {
 				return m_height;
 			}
-			int getDepth() {
+			i32 getDepth() {
 				return m_depth;
 			}
 			void setWrapping(TextureWrapping wrap) {

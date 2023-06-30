@@ -30,7 +30,8 @@ namespace Iris {
 			}
 			s_monitors = glfwGetMonitors((int*)&s_monitorCount);
 			s_videoMode = glfwGetVideoMode(s_monitors[0]);
-
+			INFO("Renderer initialized!");
+			INFO("Using Renderer: {}", (const char*)glGetString(GL_RENDERER));
 			glfwDestroyWindow(info);
 			glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
 			glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
@@ -67,6 +68,7 @@ namespace Iris {
 				delete s_window;
 				delete s_quad;
 				s_window = nullptr;
+				INFO("Successfully destroyed window!");
 			}
 		}
 	}

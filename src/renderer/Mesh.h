@@ -42,15 +42,15 @@ namespace Iris {
 				glDeleteBuffers(1, &m_ebo);
 				m_size = 0;
 			}
-			int draw() {
+			void draw() {
 				if (m_size == 0) {
 					ERROR("Failed to draw mesh! Mesh is invalid!");
-					return 0;
+					return;
 				}
 				glBindVertexArray(m_vao);
 				glDrawElements(GL_TRIANGLES, m_size, GL_UNSIGNED_INT, 0);
 				glBindVertexArray(0);
-				return 1;
+				return;
 			}
 		private:
 			GLsizei m_size;
