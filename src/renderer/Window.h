@@ -124,6 +124,7 @@ namespace Iris {
 				glfwSwapBuffers(m_window);
 			}
 			f32 getDeltaTime() {
+				if (m_deltaTime == 0.0f) return 15.0f;
 				return m_deltaTime;
 			}
 			f64 getTime() {

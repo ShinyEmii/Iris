@@ -17,7 +17,7 @@ namespace Iris {
 		}
 		class SoundSource {
 		public:
-			SoundSource(f32 gain = 1.0f, bool loop = false, f32 pitch = 1.0f, glm::vec3 pos = { 0.0f, 0.0f, 0.0f }, glm::vec3 velocity = { 0.0f, 0.0f, 0.0f }) 
+			SoundSource(f32 gain = 1.0f, bool loop = false, f32 pitch = 1.0f, glm::vec3 pos = { 0.0f, 0.0f, 0.0f }, glm::vec3 velocity = { 0.0f, 0.0f, 0.0f })
 				: m_currentID(-1), m_gain(gain), m_loop(loop), m_pitch(pitch), m_pos(pos), m_vel(velocity) {}
 			void play(Sound& sound) {
 				ALint state;

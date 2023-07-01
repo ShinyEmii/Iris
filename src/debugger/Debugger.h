@@ -50,10 +50,10 @@ namespace Iris {
 				const std::time_t time = std::chrono::system_clock::to_time_t(data.time);
 				char timeString[std::size("yyyy-mm-dd hh:mm:ss")];
 				tm t{};
-				::gmtime_s(&t, &time);
+				::localtime_s(&t, &time);
 				std::strftime(std::data(timeString), std::size(timeString), "%F %T", &t);
 				fprintf_s(f, "%s | %s | %s : %d | %s\n", timeString, data.level, data.fileName, data.line, data.message);
-				printf("%s | %s | %s : %d | %s\n", timeString, data.level, data.fileName, data.line, data.message);
+				free((void*)data.message);
 			}
 			fclose(f);
 		}
@@ -63,7 +63,9 @@ namespace Iris {
 		}
 		template <typename... Args>
 		void LOG(const char* fileName, i32 line, const char* name, const char* level, const char* format, Args&&... args) {
-			logData.emplace_back(std::chrono::system_clock::now(), fileName, level, _strdup(std::vformat(format, std::make_format_args(args...)).c_str()), line);
+			char* message = _strdup(std::vformat(format, std::make_format_args(args...)).c_str());
+			printf("%s | %s : %d | %s\n", level, fileName, line, message);
+			logData.emplace_back(std::chrono::system_clock::now(), fileName, level, message, line);
 		}
 		class Timer {
 		public:
