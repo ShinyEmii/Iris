@@ -2,6 +2,7 @@
 #include "../debugger/Debugger.h"
 #include <glm/glm.hpp>
 #include <glm/common.hpp>
+#define MAX(a,b) (a > b ? a : b)
 typedef char i8;
 typedef unsigned char u8;
 typedef short i16;
