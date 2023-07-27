@@ -1,5 +1,5 @@
 #pragma once
-#include "../utils/units.h"
+#include "../utils/utility.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 namespace Iris {
@@ -41,7 +41,7 @@ namespace Iris {
 		class Window {
 		public:
 			Window(u16 width, u16 height, const char* name, WindowMode mode, bool vsync)
-				: m_running(true), m_width(width), m_height(height), m_windowMode(mode), m_verticalSync(vsync), m_last(std::chrono::system_clock::now()) {
+				: m_deltaTime(15), m_mousePos(0, 0), m_time(0), m_running(true), m_width(width), m_height(height), m_windowMode(mode), m_verticalSync(vsync), m_last(std::chrono::system_clock::now()) {
 				memset(m_keyBuffer, 0, 512);
 				memset(m_mouseBuffer, 0, 8);
 				m_window = glfwCreateWindow(m_width, m_height, name, NULL, NULL);
@@ -87,11 +87,11 @@ namespace Iris {
 				glEnable(GL_BLEND);
 				refreshWindow();
 				glClearColor(0.0, 0.0, 0.0, 0.0);
-				INFO("Created new window ( \"{}\" ) with resolution {}x{}", name, width, height);
+				INFO("Created new window ( \"{}\" ) with resolution {}x{}.", name, width, height);
 			}
 			~Window() {
 				if (m_window == nullptr) {
-					ERROR("Failed to destroy window! The pointer is null");
+					ERROR("Failed to destroy window! Something is wrong!");
 					return;
 				}
 				glfwDestroyWindow(m_window);
@@ -124,7 +124,7 @@ namespace Iris {
 				glfwSwapBuffers(m_window);
 			}
 			f32 getDeltaTime() {
-				if (m_deltaTime == 0.0f) return 15.0f;
+				if (m_deltaTime == 0.0f) return 0.01f;
 				return m_deltaTime;
 			}
 			f64 getTime() {
@@ -143,6 +143,9 @@ namespace Iris {
 			}
 			u16 getHeight() {
 				return m_height;
+			}
+			glm::vec2 getDimensions() {
+				return glm::vec2(m_width, m_height);
 			}
 			void setWindowMode(WindowMode windowMode) {
 				m_windowMode = windowMode;

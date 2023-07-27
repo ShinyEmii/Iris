@@ -1,5 +1,4 @@
 #pragma once
-#include "../utils/units.h"
 #include "../debugger/Debugger.h"
 #include "../renderer/Renderer.h"
 #include <glm/gtc/matrix_transform.hpp>
@@ -12,7 +11,7 @@ namespace Iris {
 			}
 			void use() {
 				if (Iris::Renderer::s_currentProgram == nullptr) {
-					ERROR("Tried using camera without using Program");
+					WARN("Tried drawing without binding any Program");
 					return;
 				}
 				Iris::Renderer::s_currentProgram->setMatrix4x4("proj", getProjectionMatrix());
@@ -35,6 +34,9 @@ namespace Iris {
 			}
 			f32 getHeight() {
 				return m_height;
+			}
+			glm::vec2 getDimensions() {
+				return glm::vec2(m_width, m_height);
 			}
 			void updatePos(glm::vec2 pos) {
 				m_pos = pos;

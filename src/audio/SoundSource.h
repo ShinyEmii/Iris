@@ -23,7 +23,7 @@ namespace Iris {
 				ALint state;
 				alGetSourcei(s_audioPool[m_currentID], AL_SOURCE_STATE, &state);
 				if (m_currentID != -1 && state == AL_PLAYING) {
-					ERROR("Can't play sound because it's currently playing. You can use forcePlay method to force it to play.");
+					ERROR("Can't play sound because it's currently playing! You can use forcePlay method to force it to play.");
 					return;
 				}
 				m_currentID = getFreeAudioPoolID();

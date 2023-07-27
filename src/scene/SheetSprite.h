@@ -1,8 +1,6 @@
 #pragma once
-#include "../utils/units.h"
 #include "../renderer/Renderer.h"
 #include "../debugger/Debugger.h"
-
 #include <glm/gtc/matrix_transform.hpp>
 namespace Iris {
 	namespace Scene {
@@ -11,7 +9,7 @@ namespace Iris {
 			SheetSprite(Iris::Renderer::Texture& tex, glm::vec2 spriteSize, glm::vec2 scale = { 1.0f, 1.0f }) : m_tex(&tex), m_size(spriteSize), m_scale(scale) {};
 			void draw(glm::vec2 offset, glm::vec2 pos, bool flip = false) {
 				if (Iris::Renderer::s_currentProgram == nullptr) {
-					WARN("Tried drawing without using any Program");
+					WARN("Tried drawing without binding any Program");
 					return;
 				}
 				Iris::Renderer::s_currentProgram->setInt("albedo", 0);
@@ -23,11 +21,11 @@ namespace Iris {
 				Iris::Renderer::s_currentProgram->setMatrix4x4("model", model);
 				Iris::Renderer::s_currentProgram->setVec2("spriteSize", glm::vec2{ m_tex->getWidth(), m_tex->getHeight() } / m_size);
 				Iris::Renderer::s_currentProgram->setVec2("spriteOffset", offset);
-				if (Iris::Renderer::s_quad == nullptr) {
-					ERROR("Quad mesh hasn't been initialized!");
+				if (Iris::Renderer::s_quadMesh == nullptr) {
+					ERROR("Quad mesh hasn't been initialized! Didn't initialize the renderer?");
 					return;
 				}
-				Iris::Renderer::s_quad->draw();
+				Iris::Renderer::s_quadMesh->draw();
 			};
 			void drawCentered(glm::vec2 offset, glm::vec2 pos, bool flip = false) {
 				draw(offset, pos - m_scale / 2.0f, flip);

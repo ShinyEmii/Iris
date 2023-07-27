@@ -1,58 +1,54 @@
 #pragma once
 #include "../debugger/Debugger.h"
-#include "../utils/units.h"
+#include "../utils/utility.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include "../assets/Package.h"
 #include "Renderer.h"
 namespace Iris {
 	namespace Renderer {
 		class Program;
-		static Program* s_currentProgram;
+		static Program* s_currentProgram{0};
 		class Program {
 		public:
-			Program(const char* vertex, const char* fragment) {
+			Program()
+				: m_id(0) {
+
+			}
+			Program(char* vertexData, char* fragmentData, bool free = true) 
+				: m_id(0) {
 				u32 vertexID = glCreateShader(GL_VERTEX_SHADER);
 				u32 fragID = glCreateShader(GL_FRAGMENT_SHADER);
-				int Result = GL_FALSE;
 				int InfoLogLength;
-				auto compile = [&](u32& id, const char* input) {
-					FILE* src;
-					fopen_s(&src, input, "rb");
-					if (src == nullptr) {
-						ERROR("Shader ( \"{}\" ) doesn't exist!", input);
-						return;
-					}
-					fseek(src, 0, SEEK_END);
-					u32 size = ftell(src);
-					fseek(src, 0, SEEK_SET);
-					char* source = new char[(u64)size + 1];
-					fread_s(source, (u64)size + 1, size, 1, src);
-					source[size] = '\0';
-					fclose(src);
-					glShaderSource(id, 1, &source, NULL);
-					glCompileShader(id);
-					glGetShaderiv(id, GL_COMPILE_STATUS, &Result);
-					glGetShaderiv(id, GL_INFO_LOG_LENGTH, &InfoLogLength);
-					if (InfoLogLength > 0) {
-						char* error = new char[(i64)InfoLogLength + 1];
-						glGetShaderInfoLog(id, InfoLogLength, NULL, &error[0]);
-						ERROR("Shader ( \"{}\" ) compilation failed!\n{}", input, &error[0]);
-						delete[] error;
-						return;
-					}
-				};
-				compile(vertexID, vertex);
-				compile(fragID, fragment);
+				glShaderSource(vertexID, 1, &vertexData, NULL);
+				glCompileShader(vertexID);
+				glGetShaderiv(vertexID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+				if (InfoLogLength > 0) {
+					char* error = new char[InfoLogLength + 1];
+					glGetShaderInfoLog(vertexID, InfoLogLength, NULL, &error[0]);
+					ERROR("Vertex shader compilation failed!\n{}", &error[0]);
+					delete[] error;
+					return;
+				}
+				glShaderSource(fragID, 1, &fragmentData, NULL);
+				glCompileShader(fragID);
+				glGetShaderiv(fragID, GL_INFO_LOG_LENGTH, &InfoLogLength);
+				if (InfoLogLength > 0) {
+					char* error = new char[InfoLogLength + 1];
+					glGetShaderInfoLog(fragID, InfoLogLength, NULL, &error[0]);
+					ERROR("Vertex shader compilation failed!\n{}", &error[0]);
+					delete[] error;
+					return;
+				}
 				m_id = glCreateProgram();
 				glAttachShader(m_id, vertexID);
 				glAttachShader(m_id, fragID);
 				glLinkProgram(m_id);
-				glGetProgramiv(m_id, GL_LINK_STATUS, &Result);
 				glGetProgramiv(m_id, GL_INFO_LOG_LENGTH, &InfoLogLength);
 				if (InfoLogLength > 0) {
-					char* error = new char[(i64)InfoLogLength + 1];
+					char* error = new char[InfoLogLength + 1];
 					glGetProgramInfoLog(m_id, InfoLogLength, NULL, &error[0]);
-					ERROR("Program ( \"{}\", \"{}\" ) compilation failed!\n{}", vertex, fragment, &error[0]);
+					ERROR("Program compilation failed!\n{}", &error[0]);
 					delete[] error;
 					return;
 				}
@@ -60,7 +56,11 @@ namespace Iris {
 				glDetachShader(m_id, fragID);
 				glDeleteShader(vertexID);
 				glDeleteShader(fragID);
-				INFO("Program ( \"{}\", \"{}\" ) loaded!", vertex, fragment);
+				if (free) {
+					delete[] vertexData;
+					delete[] fragmentData;
+				}
+				INFO("Program loaded!");
 			};
 			~Program() {
 				glDeleteProgram(m_id);
@@ -87,5 +87,42 @@ namespace Iris {
 		private:
 			u32 m_id;
 		};
+		Program loadProgram(const char* vertex, const char* fragment) {
+			INFO("Loading Program from files \"{}\" and \"{}\".", vertex, fragment);
+			FILE* f;
+			fopen_s(&f, vertex, "rb");
+			if (f == nullptr) {
+				ERROR("Failed to load program! File \"{}\" doesn't exist!", vertex);
+				return Program();
+			}
+			size_t size;
+			fseek(f, 0, SEEK_END);
+			size = ftell(f);
+			fseek(f, 0, SEEK_SET);
+			char* vertexData = new char[size + 1] {0};
+			fread(vertexData, size, 1, f);
+			fclose(f);
+
+			fopen_s(&f, fragment, "rb");
+			if (f == nullptr) {
+				delete[] vertexData;
+				ERROR("Failed to load program! File \"{}\" doesn't exist!", fragment);
+				return Program();
+			}
+			fseek(f, 0, SEEK_END);
+			size = ftell(f);
+			fseek(f, 0, SEEK_SET);
+			char* fragmentData = new char[size + 1] {0};
+			fread(fragmentData, size, 1, f);
+			fclose(f);
+			return Program(vertexData, fragmentData);
+		}
+		Program loadProgram(Assets::Package& package, const char* vertex, const char* fragment) {
+			INFO("Loading Program from package \"{}\" with names \"{}\" and \"{}\".", package.getName(), vertex, fragment);
+			Assets::Asset v = package.getAsset(vertex);
+			Assets::Asset f = package.getAsset(fragment);
+			if (v.size == 0 || f.size == 0) return Program();
+			return Program(v.data, f.data, false);
+		}
 	}
 }

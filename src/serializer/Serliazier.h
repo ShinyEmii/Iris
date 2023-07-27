@@ -1,9 +1,9 @@
-#pragma once
-#include "../utils/units.h"
+ #pragma once
 #include "../debugger/Debugger.h"
 namespace Iris {
     namespace Serializer {
         enum class MetaType {
+            BOOL,
             I8,
             U8,
             I16,
@@ -15,9 +15,12 @@ namespace Iris {
             F32,
             F64,
             STRING,
+            VEC2,
+            VEC3,
+            MAT4x4,
             COUNT
         };
-        size_t metaTypeSize[(size_t)MetaType::COUNT] = { sizeof(i8), sizeof(u8), sizeof(i16), sizeof(u16), sizeof(i32), sizeof(u32), sizeof(i64), sizeof(u64), sizeof(f32), sizeof(f64), sizeof(char*) };
+        size_t metaTypeSize[(size_t)MetaType::COUNT] = { sizeof(bool), sizeof(i8), sizeof(u8), sizeof(i16), sizeof(u16), sizeof(i32), sizeof(u32), sizeof(i64), sizeof(u64), sizeof(f32), sizeof(f64), sizeof(char*), sizeof(glm::vec2), sizeof(glm::vec3), sizeof(glm::mat4x4) };
         struct MetaInfo {
             MetaType* types;
             size_t size;
@@ -31,12 +34,12 @@ namespace Iris {
         template <typename T, typename... Args>
         void registerType(Args... args) {
             if (s_metaInfo.contains(typeid(T).name())) {
-                WARN("Type '{}' is already registered!", typeid(T).name());
+                WARN("Type \"{}\" is already registered!", typeid(T).name());
                 return;
             }
             for (const auto type : { args... }) {
                 if (typeid(type) != typeid(MetaType)) {
-                    ERROR("Failed to register '{}' type! Invalid argument!", typeid(T).name());
+                    ERROR("Failed to register \"{}\" type! Invalid argument!", typeid(T).name());
                     return;
                 }
             }
@@ -44,14 +47,14 @@ namespace Iris {
             MetaType* types = new MetaType[temp.size()];
             memcpy(types, temp.data(), temp.size() * sizeof(MetaType));
             s_metaInfo.emplace(typeid(T).name(), MetaInfo{ types, temp.size() });
-            INFO("Successfully registered '{}' type", typeid(T).name());
+            INFO("Successfully registered \"{}\" type.", typeid(T).name());
         }
         template <typename T>
         MetaData createMetaData(T val, const char* name) {
             const char* typeName = typeid(T).name();
-            size_t typeLength = strlen(typeName) + 1; // +1 to include the \0 char
+            size_t typeLength = strlen(typeName) + 1; // +1 to include the null char
             if (!s_metaInfo.contains(typeName)) {
-                ERROR("Type '{}' isn't registered!", typeName);
+                ERROR("Type \"{}\" isn't registered!", typeName);
                 return {};
             }
             const char* variableName = name;
@@ -60,10 +63,10 @@ namespace Iris {
             size_t dataOffset = 0;
             size_t* offsets = new size_t[info.size];
             for (size_t i = 0; i < info.size; i++) {
-                size_t byteSize = fmax(metaTypeSize[(size_t)info.types[i]], 2);
+                size_t byteSize = MAX(metaTypeSize[(size_t)info.types[i]], 2);
                 if (i < info.size - 1) {
                     size_t spaceLeft = (dataOffset + byteSize) % 4;
-                    size_t nextSize = fmax(metaTypeSize[(size_t)info.types[i + 1]], 2);
+                    size_t nextSize = MAX(metaTypeSize[(size_t)info.types[i + 1]], 2);
                     if (nextSize > spaceLeft) {
                         byteSize += spaceLeft;
                     }
@@ -106,7 +109,7 @@ namespace Iris {
                 s_metaData.at(fullName) = MetaData{ data, outputSize };
             else
                 s_metaData.emplace(fullName, MetaData{ data, outputSize });
-            INFO("Created data for '{}' of type '{}'!", name, typeName);
+            INFO("Created data for \"{}\" of type \"{}\".", name, typeName);
             return s_metaData.at(fullName);
         }
         void saveMetaData(const char* output) {
@@ -125,14 +128,14 @@ namespace Iris {
                     fprintf(f, "%c", data.second.data[i]);
                 }
             }
-            INFO("Saved data to {}!", output);
+            INFO("Saved data to \"{}\".", output);
             fclose(f);
         }
         void loadMetaData(const char* input) {
             FILE* f;
             fopen_s(&f, input, "rb");
             if (f == nullptr) {
-                ERROR("File '{}' doesn't exist!", input);
+                ERROR("File \"{}\" doesn't exist!", input);
                 return;
             }
             fseek(f, 0, SEEK_END);
@@ -148,20 +151,20 @@ namespace Iris {
                 char* data = new char[size];
                 memcpy(data, &buf[index], size);
                 if (s_metaData.contains(fullName)) {
-                    WARN("File contains multiple datas with same identificator ('{}')!", fullName);
+                    WARN("File contains multiple datas with same identificator (\"{}\"s)!", fullName);
                 }
                 s_metaData.emplace(fullName, MetaData{ data, size });
                 index += size;
             }
             fclose(f);
-            INFO("Successfully loaded saved data!");
+            INFO("Successfully loaded saved data.");
         }
         template <typename T>
-        void loadFromMetaData(T* val, const char* name) {
+        void loadFromMetaData(T& val, const char* name) {
             const char* typeName = typeid(T).name();
             std::string fullName = std::string(typeName) + " " + std::string(name);
             if (!s_metaData.contains(fullName)) {
-                ERROR("File doesn't contain data for {} variable!", name);
+                ERROR("File doesn't contain data for \"{}\" variable!", name);
                 return;
             }
             MetaData& data = s_metaData.at(fullName);
@@ -169,10 +172,10 @@ namespace Iris {
             size_t dataOffset = 0;
             size_t* sizes = new size_t[info.size];
             for (size_t i = 0; i < info.size; i++) {
-                size_t byteSize = fmax(metaTypeSize[(size_t)info.types[i]], 2);
+                size_t byteSize = MAX(metaTypeSize[(size_t)info.types[i]], 2);
                 if (i < info.size - 1) {
                     size_t spaceLeft = (dataOffset + byteSize) % 4;
-                    size_t nextSize = fmax(metaTypeSize[(size_t)info.types[i + 1]], 2);
+                    size_t nextSize = MAX(metaTypeSize[(size_t)info.types[i + 1]], 2);
                     if (nextSize > spaceLeft) {
                         byteSize += spaceLeft;
                     }
@@ -186,6 +189,10 @@ namespace Iris {
             size_t element = 0;
             for (size_t i = sizeof(size_t) + fullName.length() + 1; i < data.size; i++) {
                 MetaType type = (MetaType)data.data[i];
+                if (type != info.types[element]) {
+                    ERROR("Failed to load data because type \"{}\" has different data types!", typeName);
+                    return;
+                }
                 size_t byteSize = metaTypeSize[(size_t)type];
                 i64 padding = sizes[element] - byteSize;
                 if (type == MetaType::STRING) {
@@ -202,8 +209,8 @@ namespace Iris {
                 element++;
                 i += byteSize;
             }
-            memcpy(val, buf, sizeof(T));
-            INFO("Loaded saved data into {}!", name);
+            memcpy(&val, buf, sizeof(T));
+            INFO("Loaded saved data into \"{}\".", name);
         }
     }
 }

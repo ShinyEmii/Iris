@@ -3,7 +3,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <format>
-#include "../utils/units.h"
+#include "../utils/utility.h"
 #ifdef IRIS_DEBUG
 #ifdef _WIN32
 #define __FUNC_NAME__   __FUNCTION__  
@@ -25,8 +25,8 @@ namespace Iris {
 			const char* fileName, * level, * message;
 			i32 line;
 		};
-		static std::unordered_map<const char*, TimerData> timerData;
-		static std::vector<LogData> logData;
+		static std::unordered_map<const char*, TimerData> s_timerData;
+		static std::vector<LogData> s_logData;
 		void save(const char* fileName) {
 			FILE* f;
 			fopen_s(&f, fileName, "w");
@@ -35,7 +35,7 @@ namespace Iris {
 				return;
 			}
 			fprintf_s(f, "-------| Timers |-------\n");
-			for (auto data : timerData) {
+			for (auto data : s_timerData) {
 				if (data.second.count > 1) {
 					fprintf_s(f, "%s : %d | %s | %3.2fms in %llu samples\n", data.second.fileName, data.second.line, data.first, data.second.length / data.second.count, data.second.count);
 					printf("%s : %d | %s | %3.2fms in %llu samples\n", data.second.fileName, data.second.line, data.first, data.second.length / data.second.count, data.second.count);
@@ -46,7 +46,7 @@ namespace Iris {
 				}
 			}
 			fprintf_s(f, "-------| Logs |-------\n");
-			for (const LogData& data : logData) {
+			for (const LogData& data : s_logData) {
 				const std::time_t time = std::chrono::system_clock::to_time_t(data.time);
 				char timeString[std::size("yyyy-mm-dd hh:mm:ss")];
 				tm t{};
@@ -58,26 +58,26 @@ namespace Iris {
 			fclose(f);
 		}
 		void clean() {
-			timerData.clear();
-			logData.clear();
+			s_timerData.clear();
+			s_logData.clear();
 		}
 		template <typename... Args>
 		void LOG(const char* fileName, i32 line, const char* name, const char* level, const char* format, Args&&... args) {
 			char* message = _strdup(std::vformat(format, std::make_format_args(args...)).c_str());
 			printf("%s | %s : %d | %s\n", level, fileName, line, message);
-			logData.emplace_back(std::chrono::system_clock::now(), fileName, level, message, line);
+			s_logData.emplace_back(std::chrono::system_clock::now(), fileName, level, message, line);
 		}
 		class Timer {
 		public:
 			Timer(const char* fileName, i32 line, const char* name)
 				: m_start(std::chrono::system_clock::now()), m_fileName(fileName), m_line(line), m_timerName(name) {};
 			~Timer() {
-				if (timerData.contains(m_timerName)) {
-					timerData.at(m_timerName).count++;
-					timerData.at(m_timerName).length += (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count();
+				if (s_timerData.contains(m_timerName)) {
+					s_timerData.at(m_timerName).count++;
+					s_timerData.at(m_timerName).length += (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count();
 				}
 				else {
-					timerData.emplace(m_timerName, TimerData{ (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count(), m_fileName, m_line, 1 });
+					s_timerData.emplace(m_timerName, TimerData{ (std::chrono::duration<f64, std::milli>(std::chrono::system_clock::now() - m_start)).count(), m_fileName, m_line, 1 });
 				}
 			}
 		private:

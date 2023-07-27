@@ -1,17 +1,16 @@
 #pragma once
-#include "../utils/units.h"
 #include "../renderer/Renderer.h"
 #include "../debugger/Debugger.h"
-
 #include <glm/gtc/matrix_transform.hpp>
 namespace Iris {
 	namespace Scene {
 		class Sprite {
 		public:
-			Sprite(Iris::Renderer::Texture& tex, glm::vec2 scale = { 1.0f, 1.0f }, glm::vec2 anchorPoint = { 0.5f, 0.5f }) : m_tex(&tex), m_scale(scale), m_rotation(0.0f), m_anchorPoint(anchorPoint) {};
+			Sprite(Iris::Renderer::Texture& tex, glm::vec2 scale = { 1.0f, 1.0f }, glm::vec2 anchorPoint = { 0.5f, 0.5f }) 
+				: m_tex(&tex), m_scale(scale), m_rotation(0.0f), m_anchorPoint(anchorPoint) {};
 			void draw(glm::vec2 pos, bool flip = false) {
 				if (Iris::Renderer::s_currentProgram == nullptr) {
-					WARN("Tried drawing without using any Program");
+					WARN("Tried drawing without binding any Program");
 					return;
 				}
 				Iris::Renderer::s_currentProgram->setInt("albedo", 0);
@@ -24,11 +23,11 @@ namespace Iris {
 				glm::mat4x4 model = trans * scale * restoreOffset * rotation * rotationAnchorOffset * glm::mat4x4(1.0f);
 				Iris::Renderer::s_currentProgram->setInt("flip", flip);
 				Iris::Renderer::s_currentProgram->setMatrix4x4("model", model);
-				if (Iris::Renderer::s_quad == nullptr) {
-					ERROR("Quad mesh hasn't been initialized!");
+				if (Iris::Renderer::s_quadMesh == nullptr) {
+					ERROR("Quad mesh hasn't been initialized! Didn't initialize the renderer?");
 					return;
 				}
-				Iris::Renderer::s_quad->draw();
+				Iris::Renderer::s_quadMesh->draw();
 			};
 			void setScale(glm::vec2 scale) {
 				m_scale = scale;

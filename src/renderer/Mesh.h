@@ -1,11 +1,12 @@
 #pragma once
 #include "../debugger/Debugger.h"
-#include "../utils/units.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <vector>
 namespace Iris {
 	namespace Renderer {
+		class Mesh;
+		static Mesh* s_quadMesh;
 		struct MeshPoint {
 			glm::vec3 pos; 
 			glm::vec2 uv;
@@ -16,7 +17,8 @@ namespace Iris {
 		};
 		class Mesh {
 		public:
-			Mesh(MeshData& data) {
+			Mesh(MeshData& data) 
+				: m_size(0), m_vbo(0), m_vao(0), m_ebo(0) {
 				if (data.points.empty() || data.indices.empty()) {
 					ERROR("Failed to create Mesh because given data was empty!");
 					return;
@@ -34,7 +36,7 @@ namespace Iris {
 				glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshPoint), (void*)0);
 				glEnableVertexAttribArray(1);
 				glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(MeshPoint), (void*)offsetof(MeshPoint, uv));
-				INFO("Mesh successfully created!");
+				INFO("Mesh successfully created.");
 			}
 			~Mesh() {
 				glDeleteVertexArrays(1, &m_vao);

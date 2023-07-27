@@ -2,13 +2,11 @@
 #include "Window.h"
 #include "Texture.h"
 #include "Program.h"
-#include "FrameBuffer.h"
 #include "Mesh.h"
-#include "../debugger/Debugger.h"
+#include "FrameBuffer.h"
 namespace Iris {
 	namespace Renderer {
 		static Window* s_window;
-		static Mesh* s_quad;
 		i8 init() {
 			if (!glfwInit()) {
 				ERROR("Failed to initialize GLFW!");
@@ -30,8 +28,8 @@ namespace Iris {
 			}
 			s_monitors = glfwGetMonitors((int*)&s_monitorCount);
 			s_videoMode = glfwGetVideoMode(s_monitors[0]);
-			INFO("Renderer initialized!");
-			INFO("Using Renderer: {}", (const char*)glGetString(GL_RENDERER));
+			INFO("Renderer initialized.");
+			INFO("Using Video Device: {}", (const char*)glGetString(GL_RENDERER));
 			glfwDestroyWindow(info);
 			glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
 			glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
@@ -40,7 +38,7 @@ namespace Iris {
 		}
 		Window& createWindow(u16 width, u16 height, const char* name = "Iris Application", WindowMode mode = WindowMode::WINDOWED, bool vsync = false) {
 			if (s_window != nullptr) {
-				ERROR("Failed to create new window. Window already exists!");
+				ERROR("Failed to create new window! Window already exists!");
 				return *s_window;
 			}
 			s_window = new Window(width, height, name, mode, vsync);
@@ -53,7 +51,7 @@ namespace Iris {
 					{ { 0.0f, 1.0f, 0.0f }, { 0.0f, 1.0f } }
 				}
 			};
-			s_quad = new Mesh(quadData);
+			s_quadMesh = new Mesh(quadData);
 			return *s_window;
 		} 
 		Window& getWindow() {
@@ -66,10 +64,11 @@ namespace Iris {
 		void destroy() {
 			if (s_window != nullptr) {
 				delete s_window;
-				delete s_quad;
+				delete s_quadMesh;
 				s_window = nullptr;
-				INFO("Successfully destroyed window!");
+				INFO("Successfully destroyed window.");
 			}
+			INFO("Renderer destroyed.");
 		}
 	}
 }
