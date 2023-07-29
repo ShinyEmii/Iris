@@ -1,216 +1,334 @@
  #pragma once
+#include <string_view>
 #include "../debugger/Debugger.h"
 namespace Iris {
     namespace Serializer {
-        enum class MetaType {
-            BOOL,
-            I8,
-            U8,
-            I16,
-            U16,
-            I32,
-            U32,
-            I64,
-            U64,
-            F32,
-            F64,
-            STRING,
-            VEC2,
-            VEC3,
-            MAT4x4,
-            COUNT
-        };
-        size_t metaTypeSize[(size_t)MetaType::COUNT] = { sizeof(bool), sizeof(i8), sizeof(u8), sizeof(i16), sizeof(u16), sizeof(i32), sizeof(u32), sizeof(i64), sizeof(u64), sizeof(f32), sizeof(f64), sizeof(char*), sizeof(glm::vec2), sizeof(glm::vec3), sizeof(glm::mat4x4) };
-        struct MetaInfo {
-            MetaType* types;
-            size_t size;
-        };
-        struct MetaData {
-            char* data;
-            size_t size;
-        };
-        std::unordered_map<const char*, MetaInfo> s_metaInfo;
-        std::unordered_map<std::string, MetaData> s_metaData;
-        template <typename T, typename... Args>
-        void registerType(Args... args) {
-            if (s_metaInfo.contains(typeid(T).name())) {
-                WARN("Type \"{}\" is already registered!", typeid(T).name());
-                return;
-            }
-            for (const auto type : { args... }) {
-                if (typeid(type) != typeid(MetaType)) {
-                    ERROR("Failed to register \"{}\" type! Invalid argument!", typeid(T).name());
-                    return;
-                }
-            }
-            std::vector<MetaType> temp = { args... };
-            MetaType* types = new MetaType[temp.size()];
-            memcpy(types, temp.data(), temp.size() * sizeof(MetaType));
-            s_metaInfo.emplace(typeid(T).name(), MetaInfo{ types, temp.size() });
-            INFO("Successfully registered \"{}\" type.", typeid(T).name());
-        }
-        template <typename T>
-        MetaData createMetaData(T val, const char* name) {
-            const char* typeName = typeid(T).name();
-            size_t typeLength = strlen(typeName) + 1; // +1 to include the null char
-            if (!s_metaInfo.contains(typeName)) {
-                ERROR("Type \"{}\" isn't registered!", typeName);
-                return {};
-            }
-            const char* variableName = name;
-            size_t variableLength = strlen(variableName) + 1;
-            MetaInfo& info = s_metaInfo.at(typeName);
-            size_t dataOffset = 0;
-            size_t* offsets = new size_t[info.size];
-            for (size_t i = 0; i < info.size; i++) {
-                size_t byteSize = MAX(metaTypeSize[(size_t)info.types[i]], 2);
-                if (i < info.size - 1) {
-                    size_t spaceLeft = (dataOffset + byteSize) % 4;
-                    size_t nextSize = MAX(metaTypeSize[(size_t)info.types[i + 1]], 2);
-                    if (nextSize > spaceLeft) {
-                        byteSize += spaceLeft;
-                    }
-                }
-                offsets[i] = dataOffset;
-                dataOffset += byteSize;
-            }
-            size_t outputSize = typeLength + variableLength + info.size + sizeof(outputSize);
-            for (size_t i = 0; i < info.size; i++) {
-                if (info.types[i] == MetaType::STRING) {
-                    char* ptr = (char*)(&val) + offsets[i];
-                    char* str = (char*)*(size_t*)ptr;
-                    outputSize += strlen(str) + 1;
-                }
-                else {
-                    size_t byteSize = metaTypeSize[(size_t)info.types[i]];
-                    outputSize += byteSize;
-                }
-            }
-            char* data = new char[outputSize];
-            std::string fullName = std::string(typeName) + " " + std::string(variableName);
-            size_t index = typeLength + variableLength + sizeof(outputSize);
-            memcpy(data, &outputSize, sizeof(outputSize));
-            memcpy(data + sizeof(outputSize), fullName.c_str(), fullName.length() + 1);
-            for (size_t i = 0; i < info.size; i++) {
-                data[index++] = (char)info.types[i];
-                if (info.types[i] == MetaType::STRING) {
-                    char* ptr = (char*)(&val) + offsets[i];
-                    char* str = (char*)*(size_t*)ptr;
-                    memcpy(data + index, str, strlen(str) + 1);
-                    index += strlen(str) + 1;
-                }
-                else {
-                    size_t byteSize = metaTypeSize[(size_t)info.types[i]];
-                    memcpy(data + index, ((char*)&val) + offsets[i], byteSize);
-                    index += byteSize;
-                }
-            }
-            if (s_metaData.contains(fullName))
-                s_metaData.at(fullName) = MetaData{ data, outputSize };
-            else
-                s_metaData.emplace(fullName, MetaData{ data, outputSize });
-            INFO("Created data for \"{}\" of type \"{}\".", name, typeName);
-            return s_metaData.at(fullName);
-        }
-        void saveMetaData(const char* output) {
-            FILE* f;
-            fopen_s(&f, output, "wb");
-            if (f == nullptr) {
-                ERROR("Failed to save data!");
-                return;
-            }
-            size_t amount = s_metaData.size();
-            for (size_t i = 0; i < sizeof(size_t); i++) {
-                fprintf(f, "%c", ((char*)&amount)[i]);
-            }
-            for (auto data : s_metaData) {
-                for (size_t i = 0; i < data.second.size; i++) {
-                    fprintf(f, "%c", data.second.data[i]);
-                }
-            }
-            INFO("Saved data to \"{}\".", output);
-            fclose(f);
-        }
-        void loadMetaData(const char* input) {
-            FILE* f;
-            fopen_s(&f, input, "rb");
-            if (f == nullptr) {
-                ERROR("File \"{}\" doesn't exist!", input);
-                return;
-            }
-            fseek(f, 0, SEEK_END);
-            size_t size = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            char* buf = new char[size];
-            fread_s(buf, size, size, 1, f);
-            size_t amount = *(size_t*)(buf);
-            size_t index = sizeof(size_t);
-            for (size_t i = 0; i < amount; i++) {
-                size_t size = *(size_t*)(buf + index);
-                std::string fullName = std::string((const char*)(buf + index + sizeof(size_t)));
-                char* data = new char[size];
-                memcpy(data, &buf[index], size);
-                if (s_metaData.contains(fullName)) {
-                    WARN("File contains multiple datas with same identificator (\"{}\"s)!", fullName);
-                }
-                s_metaData.emplace(fullName, MetaData{ data, size });
-                index += size;
-            }
-            fclose(f);
-            INFO("Successfully loaded saved data.");
-        }
-        template <typename T>
-        void loadFromMetaData(T& val, const char* name) {
-            const char* typeName = typeid(T).name();
-            std::string fullName = std::string(typeName) + " " + std::string(name);
-            if (!s_metaData.contains(fullName)) {
-                ERROR("File doesn't contain data for \"{}\" variable!", name);
-                return;
-            }
-            MetaData& data = s_metaData.at(fullName);
-            MetaInfo& info = s_metaInfo.at(typeName);
-            size_t dataOffset = 0;
-            size_t* sizes = new size_t[info.size];
-            for (size_t i = 0; i < info.size; i++) {
-                size_t byteSize = MAX(metaTypeSize[(size_t)info.types[i]], 2);
-                if (i < info.size - 1) {
-                    size_t spaceLeft = (dataOffset + byteSize) % 4;
-                    size_t nextSize = MAX(metaTypeSize[(size_t)info.types[i + 1]], 2);
-                    if (nextSize > spaceLeft) {
-                        byteSize += spaceLeft;
-                    }
-                }
-                sizes[i] = byteSize;
-                dataOffset += byteSize;
-            }
-            char* buf = new char[sizeof(T)];
-            memset(buf, 0, sizeof(T));
-            size_t index = 0;
-            size_t element = 0;
-            for (size_t i = sizeof(size_t) + fullName.length() + 1; i < data.size; i++) {
-                MetaType type = (MetaType)data.data[i];
-                if (type != info.types[element]) {
-                    ERROR("Failed to load data because type \"{}\" has different data types!", typeName);
-                    return;
-                }
-                size_t byteSize = metaTypeSize[(size_t)type];
-                i64 padding = sizes[element] - byteSize;
-                if (type == MetaType::STRING) {
-                    char* ptr = (char*)(data.data + i + 1);
-                    memcpy(buf + index, &ptr, sizeof(char*));
-                    index += byteSize;
-                    byteSize = strlen(data.data + i);
-                }
-                else {
-                    memcpy(buf + index, data.data + i + 1, byteSize);
-                    if (padding > 0) index += padding;
-                    index += byteSize;
-                }
-                element++;
-                i += byteSize;
-            }
-            memcpy(&val, buf, sizeof(T));
-            INFO("Loaded saved data into \"{}\".", name);
-        }
+		template <typename C, typename T>
+		inline size_t constexpr offset_of(T val) {
+			constexpr C object{};
+			return size_t(&(object.*val)) - size_t(&object);
+		}
+		template <typename C, typename T>
+		inline size_t constexpr size_of(T val) {
+			constexpr C object{};
+			return sizeof(object.*val);
+		}
+		template <typename C, typename T>
+		inline std::string_view constexpr name_of(T val) {
+			constexpr C object{};
+			return typeid(object.*val).name();
+		}
+		class MetaData {
+		public:
+			MetaData(char* data, size_t size) : m_data(data), m_size(size) {};
+			char* getData() {
+				return m_data;
+			}
+			size_t getSize() {
+				return m_size;
+			}
+		private:
+			char* m_data;
+			size_t m_size;
+		};
+		template <typename C>
+		class _MetaProperty {
+		public:
+			virtual size_t getByteSize() {
+				return 0;
+			}
+			virtual size_t getSize(C data) {
+				return 0;
+			}
+			virtual size_t getOffset() {
+				return 0;
+			}
+			virtual std::string_view getName() {
+				return "invalidName";
+			}
+			virtual std::string_view getData(C data) {
+				return "invalidData";
+			}
+			virtual void loadFromData(C* value, std::string_view name, MetaData& data) {};
+		};
+		template <typename C, typename T>
+		class MetaProperty : public _MetaProperty<C> {
+		public:
+			MetaProperty(T member) : m_member(member) {};
+			size_t getByteSize() {
+				return size_of<C, T>(m_member);
+			}
+			size_t getSize(C data) {
+				return size_of<C, T>(m_member);
+			}
+			size_t getOffset() {
+				return offset_of<C, T>(m_member);
+			}
+			std::string_view getName() {
+				return name_of<C, T>(m_member);
+			}
+			std::string_view getData(C data) {
+				return std::string_view((char*)(&(data.*m_member)), getSize(data));
+			}
+			void loadFromData(C* value, std::string_view name, MetaData& data) {
+				size_t size;
+				memcpy(&size, data.getData(), sizeof(size_t));
+				char* className = data.getData() + sizeof(size_t);
+				if (strncmp(className, typeid(C).name(), strlen(className)) != 0) {
+					WARN("Value isn't of same type as provided MetaData!");
+				}
+				for (size_t i = sizeof(size_t) + strlen(className) + 1; i < data.getSize(); i) {
+					char* typeName = data.getData() + i;
+					i += strlen(typeName) + 1;
+					char* dataName = data.getData() + i;
+					i += strlen(dataName) + 1;
+					size_t skipSize;
+					memcpy(&skipSize, data.getData() + i, sizeof(size_t));
+					i += sizeof(size_t);
+					if (strncmp(name.data(), dataName, name.size()) == 0 && name.size() == strlen(dataName)) {
+						if (strncmp(typeName, getName().data(), getName().size()) != 0 || strlen(typeName) != getName().size()) {
+							WARN("Meta data contains different element types!");
+						}
+						size_t byteSize;
+						memcpy(&byteSize, data.getData() + i, sizeof(size_t));
+						i += sizeof(size_t);
+						if (byteSize != getByteSize()) {
+							ERROR("Size of saved MetaData isn't correct!");
+							return;
+						}
+						memcpy((char*)value + getOffset(), data.getData() + i, byteSize);
+						return;
+					}
+					i += skipSize;
+				}
+			}
+		private:
+			T m_member;
+		};
+		template <typename C>
+		class MetaProperty <C, const char* C::*> : public _MetaProperty<C> {
+		public:
+			MetaProperty(const char* C::* member) : m_member(member) {};
+			size_t getByteSize() {
+				return sizeof(const char*);
+			}
+			size_t getSize(C data) {
+				return strlen(data.*m_member);
+			}
+			size_t getOffset() {
+				return offset_of<C, const char* C::*>(m_member);
+			}
+			std::string_view getName() {
+				return name_of<C, const char* C::*>(m_member);
+			}
+			std::string_view getData(C data) {
+				return std::string_view(data.*m_member, getSize(data));
+			}
+			void loadFromData(C* value, std::string_view name, MetaData& data) {
+				char* metaName = data.getData();
+				size_t size;
+				memcpy(&size, data.getData() + strlen(metaName) + 1, sizeof(size_t));
+				char* className = data.getData() + strlen(metaName) + 1 + sizeof(size_t);
+				if (strncmp(className, typeid(C).name(), strlen(className)) != 0 || strlen(className) != strlen(typeid(C).name())) {
+					WARN("Value isn't of same type as provided MetaData!");
+				}
+				for (size_t i = strlen(metaName) + 1 + sizeof(size_t) + strlen(className) + 1; i < data.getSize(); i) {
+					char* typeName = data.getData() + i;
+					i += strlen(typeName) + 1;
+					char* dataName = data.getData() + i;
+					i += strlen(dataName) + 1;
+					size_t skipSize;
+					memcpy(&skipSize, data.getData() + i, sizeof(size_t));
+					i += sizeof(size_t);
+					if (strncmp(name.data(), dataName, name.size()) == 0 && name.size() == strlen(dataName)) {
+						if (strncmp(typeName, getName().data(), getName().size()) != 0 || strlen(typeName) != getName().size()) {
+							WARN("Meta data contains different element types!");
+						}
+						size_t byteSize;
+						memcpy(&byteSize, data.getData() + i, sizeof(size_t));
+						i += sizeof(size_t);
+						if (byteSize != getByteSize()) {
+							ERROR("Size of saved MetaData isn't correct!");
+							return;
+						}
+						char* ptr = (char*)(data.getData() + i);
+						memcpy((char*)value + getOffset(), &ptr, sizeof(const char*));
+						return;
+					}
+					i += skipSize;
+				}
+			}
+		private:
+			const char* C::* m_member;
+		};
+		template <typename C>
+		class MetaType {
+		public:
+			MetaType(std::string_view name)
+				: m_name(name) {};
+			template <typename T>
+			MetaType& property(std::string_view name, T value) {
+				MetaProperty<C, T>* prop = new MetaProperty<C, T>(value);
+				m_properties.emplace( name, prop );
+				return *this;
+			}
+			MetaData getData(C value) {
+				size_t size = m_name.size() + 1;
+				size += sizeof(size_t); // size of data 
+				size_t* sizes = new size_t[m_properties.size()]{ 0 };
+				size_t sizeIndex = 0;
+				for (auto& prop : m_properties) {
+					size_t propSize = 0;
+					size += prop.second->getName().size() + 1; // type name to validate
+					size += prop.first.size() + 1; // member name
+					size += sizeof(size_t); // skip size
+					propSize += sizeof(size_t); // type size
+					propSize += prop.second->getData(value).size() + 1;
+					size += propSize;
+					sizes[sizeIndex] = propSize;
+					sizeIndex++;
+				}
+				char* buf = new char[size] {0};
+				size_t index = 0;
+				sizeIndex = 0;
+				memcpy(buf + index, (char*)&size, sizeof(size_t));
+				index += sizeof(size_t);
+				memcpy(buf + index, m_name.data(), m_name.size());
+				index += m_name.size() + 1;
+				for (auto& prop : m_properties) {
+					std::string_view typeName = prop.second->getName();
+					std::string_view name = prop.first;
+					size_t typeSize = prop.second->getByteSize();
+					size_t offset = prop.second->getOffset();
+					std::string_view data = prop.second->getData(value);
+					size_t dataSize = data.size();
+					memcpy(buf + index, typeName.data(), typeName.size());
+					index += typeName.size() + 1;
+					memcpy(buf + index, name.data(), name.size());
+					index += name.size() + 1;
+					memcpy(buf + index, (char*)(sizes + sizeIndex), sizeof(size_t));
+					index += sizeof(size_t);
+					memcpy(buf + index, (char*)&typeSize, sizeof(size_t));
+					index += sizeof(size_t);
+					memcpy(buf + index, data.data(), data.size());
+					index += data.size() + 1;
+					sizeIndex++;
+				}
+				return MetaData(buf, size);
+			}
+			void loadFromData(C* value, MetaData& data) {
+				for (auto& prop : m_properties) {
+					prop.second->loadFromData(value, prop.first, data);
+				}
+			}
+		private:
+			std::string_view m_name;
+			std::unordered_map<std::string_view, _MetaProperty<C>*> m_properties;
+		};
+		template <typename C>
+		MetaType<C>* registeredType;
+		template <typename C>
+		constexpr MetaType<C>& registerType() {
+			std::string_view typeName = typeid(C).name();
+			if (registeredType<C> != nullptr) {
+				WARN("Class was already registered!");
+				delete registeredType<C>;
+			}
+			registeredType<C> = new MetaType<C>{ typeName };
+			INFO("Successfully registered \"{}\" type.", typeName);
+			return *registeredType<C>;
+		}
+		std::unordered_map<std::string_view, MetaData> s_metaDatas;
+		template <typename C>
+		void createMetaData(C value, const char* name) {
+			std::string_view typeName = typeid(C).name();
+			if (registeredType<C> == nullptr) {
+				ERROR("Type \"{}\" isn't registered!", typeName);
+				return;
+			}
+			if (s_metaDatas.contains(name)) {
+				s_metaDatas.at(name) = registeredType<C>->getData(value);
+				return;
+			}
+			s_metaDatas.emplace(name, registeredType<C>->getData(value));
+		}
+		void saveMetaData(const char* output) {
+			FILE* f;
+			fopen_s(&f, output, "wb");
+			if (f == nullptr) {
+				ERROR("Failed to open output file \"{}\"!", output);
+				return;
+			}
+			size_t amount = s_metaDatas.size();
+			size_t size = 4;
+			size += sizeof(size_t);
+			for (auto& data : s_metaDatas) {
+				size += data.first.size() + 1;
+				size += data.second.getSize();
+			}
+			char* buf = new char[size] {0};
+			size_t index = 0;
+			memcpy(buf + index, "IRIS", 4);
+			index += 4;
+			memcpy(buf + index, (char*)&amount, sizeof(size_t));
+			index += sizeof(size_t);
+			for (auto& data : s_metaDatas) {
+				memcpy(buf + index, data.first.data(), data.first.size());
+				index += data.first.size() + 1;
+				memcpy(buf + index, data.second.getData(), data.second.getSize());
+				index += data.second.getSize();
+			}
+			fwrite(buf, size, 1, f);
+			fclose(f);
+			INFO("Saved data to \"{}\".", output);
+		}
+		void loadMetaData(const char* input) {
+			FILE* f;
+			fopen_s(&f, input, "rb");
+			if (f == nullptr) {
+				ERROR("Failed to open input file \"{}\"!", input);
+				return;
+			}
+			size_t size;
+			fseek(f, 0, SEEK_END);
+			size = ftell(f);
+			fseek(f, 0, SEEK_SET);
+			char* buf = new char[size];
+			size_t index = 4;
+			fread(buf, size, 1, f);
+			fclose(f);
+			if (strncmp(buf, "IRIS", 4) != 0) {
+				ERROR("File \"{}\" isn't a valid Iris serializer file!", input);
+				return;
+			}
+			size_t amount;
+			memcpy(&amount, buf + index, sizeof(size_t));
+			index += sizeof(size_t);
+			for (size_t i = 0; i < amount; i++) {
+				char* name = buf + index;
+				index += strlen(name) + 1;
+				size_t blockSize;
+				memcpy(&blockSize, buf + index, sizeof(size_t));
+				if (blockSize > size) {
+					ERROR("MetaData file \"{}\" is corrupted!", input);
+					return;
+				}
+				INFO("Found MetaData \"{}\" with size of {} bytes.", name, blockSize);
+				if (s_metaDatas.contains(name)) {
+					WARN("File contains multiple datas with same identificator (\"{}\")!", name);
+				}
+				s_metaDatas.emplace( name, MetaData{ buf + index, blockSize} );
+				index += blockSize;
+			}
+		}
+		template <typename C>
+		void loadFromMetaData(C& value, const char* name) {
+			if (!s_metaDatas.contains(name)) {
+				ERROR("Loaded MetaData doesn't contain data for \"{}\" variable!", name);
+				return;
+			}
+			INFO("Loading in values using identifier \"{}\".", name);
+			registeredType<C>->loadFromData(&value, s_metaDatas.at(name));
+		}
     }
 }

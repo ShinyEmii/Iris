@@ -29,19 +29,6 @@ public:
 		}
 		if (vel.y == 0.0f) vel.x *= powf(0.99f, delta);
 	}
-	glm::vec2& getPos() {
-		return pos;
-	}
-	glm::vec2& getVel() {
-		return vel;
-	}	
-	glm::vec2& getAcc() {
-		return acc;
-	}
-	bool& getDoubleJump() {
-		return doubleJump;
-	}
-private:
 	bool doubleJump = true;
 	glm::vec2 pos{ 0, 0 };
 	glm::vec2 vel{ 0, 0 };
@@ -69,25 +56,28 @@ int main() {
 	Scene::Sprite main{ tex , { 80, 80 } };
 	Scene::Sprite bg{ tex , { 800, 800 } };
 
-	Serializer::registerType<Player>(Serializer::MetaType::BOOL, Serializer::MetaType::VEC2, Serializer::MetaType::VEC2, Serializer::MetaType::VEC2, Serializer::MetaType::BOOL);
+	Serializer::registerType<Player>()
+		.property("pos", &Player::pos)
+		.property("vel", &Player::vel)
+		.property("doubleJump", &Player::doubleJump);
+
 	Player player;
 	Serializer::loadMetaData("save.dat");
 	Serializer::loadFromMetaData(player, "player");
-
 	do {
 		IRIS_TIME_SCOPE("Frame Time");
 		player.update(window.getDeltaTime());
-		camera.getPos() = deltaLerp(camera.getPos(), player.getPos() - (camera.getDimensions() * 0.5f), 0.995f, window.getDeltaTime());
+		camera.getPos() = deltaLerp(camera.getPos(), player.pos - (camera.getDimensions() * 0.5f), 0.995f, window.getDeltaTime());
 		if (window.getKey(GLFW_KEY_A) == Renderer::KeyState::DOWN) {
-			player.getVel().x -= 0.01f * window.getDeltaTime();
+			player.vel.x -= 0.01f * window.getDeltaTime();
 		}
 		if (window.getKey(GLFW_KEY_D) == Renderer::KeyState::DOWN) {
-			player.getVel().x += 0.01f * window.getDeltaTime();
+			player.vel.x += 0.01f * window.getDeltaTime();
 		}
-		if (window.getKey(GLFW_KEY_SPACE) == Renderer::KeyState::PRESSED && (player.getVel().y == 0.0f || player.getDoubleJump())) {
-			if (player.getDoubleJump() && player.getVel().y != 0.0f)
-				player.getDoubleJump() = false;
-			player.getVel().y = -1.2f;
+		if (window.getKey(GLFW_KEY_SPACE) == Renderer::KeyState::PRESSED && (player.vel.y == 0.0f || player.doubleJump)) {
+			if (player.doubleJump && player.vel.y != 0.0f)
+				player.doubleJump = false;
+			player.vel.y = -1.2f;
 			jumpSource.forcePlay(jumpSound);
 		}
 
@@ -95,7 +85,7 @@ int main() {
 		defaultProgram.use();
 		camera.use();
 		bg.draw({ 0, 0 });
-		main.draw(player.getPos());
+		main.draw(player.pos);
 		window.swapBuffers();
 		window.pollEvents();
 	} while (!window.shouldClose() && window.getKey(GLFW_KEY_ESCAPE) == Renderer::KeyState::UP);
