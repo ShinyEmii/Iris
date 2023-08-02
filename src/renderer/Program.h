@@ -8,7 +8,7 @@
 namespace Iris {
 	namespace Renderer {
 		class Program;
-		static Program* s_currentProgram{0};
+		static Program* s_activeProgram{0};
 		class Program {
 		public:
 			Program()
@@ -67,7 +67,7 @@ namespace Iris {
 			}
 			void use() {
 				glUseProgram(m_id);
-				s_currentProgram = this;
+				s_activeProgram = this;
 			};
 			void setMatrix4x4(const char* location, glm::mat4x4 value) {
 				glUniformMatrix4fv(glGetUniformLocation(m_id, location), 1, GL_FALSE, &value[0][0]);

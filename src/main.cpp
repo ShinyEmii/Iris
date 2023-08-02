@@ -38,8 +38,8 @@ using namespace Iris;
 int main() {
 	Renderer::init();
 	Audio::init();
-
-	//Assets::createPackage("assets.ipk", { "assets/textures/test.jpg", "assets/shaders/defaultVertex.glsl", "assets/shaders/defaultFrag.glsl", "assets/audio/C418 - Kyoto.wav", "assets/audio/jump.wav" });
+	//Assets::createPackage("assets.ipk", { "assets/test.dat", "assets/test2.dat" });
+	Assets::createPackage("assets.ipk", { "assets/textures/test.jpg", "assets/shaders/defaultVertex.glsl", "assets/shaders/defaultFrag.glsl", "assets/audio/C418 - Kyoto.wav", "assets/audio/jump.wav" });
 	Renderer::Window& window = Renderer::createWindow(1280, 720);
 	Assets::Package pak = Assets::loadPackage("assets.ipk");
 
@@ -52,7 +52,9 @@ int main() {
 	Audio::SoundSource jumpSource{ 0.05f };
 	musicSource.play(dannyMusic);
 
-	Scene::Camera camera{ (f32)window.getWidth(), (f32)window.getHeight() };
+	Scene::Camera camera = Scene::createCamera(window.getWidth(), window.getHeight());
+	camera.use(); 
+
 	Scene::Sprite main{ tex , { 80, 80 } };
 	Scene::Sprite bg{ tex , { 800, 800 } };
 
@@ -62,12 +64,12 @@ int main() {
 		.property("doubleJump", &Player::doubleJump);
 
 	Player player;
-	Serializer::loadMetaData("save.dat");
+	Serializer::loadMetaData("save.isr");
 	Serializer::loadFromMetaData(player, "player");
 	do {
 		IRIS_TIME_SCOPE("Frame Time");
 		player.update(window.getDeltaTime());
-		camera.getPos() = deltaLerp(camera.getPos(), player.pos - (camera.getDimensions() * 0.5f), 0.995f, window.getDeltaTime());
+		camera.setPos(deltaLerp(camera.getPos(), player.pos - (camera.getDimensions() * 0.5f), 0.995f, window.getDeltaTime()));
 		if (window.getKey(GLFW_KEY_A) == Renderer::KeyState::DOWN) {
 			player.vel.x -= 0.01f * window.getDeltaTime();
 		}
@@ -83,7 +85,6 @@ int main() {
 
 		window.clear();
 		defaultProgram.use();
-		camera.use();
 		bg.draw({ 0, 0 });
 		main.draw(player.pos);
 		window.swapBuffers();
@@ -91,7 +92,7 @@ int main() {
 	} while (!window.shouldClose() && window.getKey(GLFW_KEY_ESCAPE) == Renderer::KeyState::UP);
 
 	Serializer::createMetaData(player, "player");
-	Serializer::saveMetaData("save.dat");
+	Serializer::saveMetaData("save.isr");
 
 	Renderer::destroy();
 	Audio::destroy();

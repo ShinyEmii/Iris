@@ -1,6 +1,23 @@
  #pragma once
 #include <string_view>
 #include "../debugger/Debugger.h"
+#include "../utils/Buffer.h"
+#include "../utils/CRC32.h"
+/* SERIALIZER
+4 bytes - IRIS tag
+8 bytes - size_t / amount of saved meta datas
+SERIALIZER HEADER
+varying - string / name of data including null byte
+8 bytes - size_t / size of data without name of data
+varying - string / type name
+varying - string / property name including null byte
+8 bytes - size_t / amount in bytes to skip to next property
+8 bytes - size_t / sizeof data type of the property
+varying - bytes  / raw data of property
+1 byte  - null   / padding
+LAST 4 BYTES OF FILE
+4 bytes - u32    / CRC32
+*/
 namespace Iris {
     namespace Serializer {
 		template <typename C, typename T>
@@ -34,22 +51,12 @@ namespace Iris {
 		template <typename C>
 		class _MetaProperty {
 		public:
-			virtual size_t getByteSize() {
-				return 0;
-			}
-			virtual size_t getSize(C data) {
-				return 0;
-			}
-			virtual size_t getOffset() {
-				return 0;
-			}
-			virtual std::string_view getName() {
-				return "invalidName";
-			}
-			virtual std::string_view getData(C data) {
-				return "invalidData";
-			}
-			virtual void loadFromData(C* value, std::string_view name, MetaData& data) {};
+			virtual size_t getByteSize() = 0;
+			virtual size_t getSize(C data) = 0;
+			virtual size_t getOffset() = 0;
+			virtual std::string_view getName() = 0;
+			virtual std::string_view getData(C data) = 0;
+			virtual void loadFromData(C* value, std::string_view name, MetaData& data) = 0;
 		};
 		template <typename C, typename T>
 		class MetaProperty : public _MetaProperty<C> {
@@ -71,35 +78,32 @@ namespace Iris {
 				return std::string_view((char*)(&(data.*m_member)), getSize(data));
 			}
 			void loadFromData(C* value, std::string_view name, MetaData& data) {
+				Utility::Buffer<char> buf(data.getData(), data.getSize());
 				size_t size;
-				memcpy(&size, data.getData(), sizeof(size_t));
-				char* className = data.getData() + sizeof(size_t);
-				if (strncmp(className, typeid(C).name(), strlen(className)) != 0) {
+				buf.readData(&size, sizeof(size_t));
+				char* className = buf.readString();
+				if (!Utility::compareString(className, typeid(C).name())) {
 					WARN("Value isn't of same type as provided MetaData!");
-				}
-				for (size_t i = sizeof(size_t) + strlen(className) + 1; i < data.getSize(); i) {
-					char* typeName = data.getData() + i;
-					i += strlen(typeName) + 1;
-					char* dataName = data.getData() + i;
-					i += strlen(dataName) + 1;
+				};
+				while (buf.getIndex() < data.getSize()) {
+					char* typeName = buf.readString();
+					char* dataName = buf.readString();
 					size_t skipSize;
-					memcpy(&skipSize, data.getData() + i, sizeof(size_t));
-					i += sizeof(size_t);
-					if (strncmp(name.data(), dataName, name.size()) == 0 && name.size() == strlen(dataName)) {
-						if (strncmp(typeName, getName().data(), getName().size()) != 0 || strlen(typeName) != getName().size()) {
+					buf.readData(&skipSize, sizeof(size_t));
+					if (Utility::compareString(name.data(), dataName)) {
+						if (!Utility::compareString(typeName, getName().data())) {
 							WARN("Meta data contains different element types!");
 						}
 						size_t byteSize;
-						memcpy(&byteSize, data.getData() + i, sizeof(size_t));
-						i += sizeof(size_t);
+						buf.readData(&byteSize, sizeof(size_t));
 						if (byteSize != getByteSize()) {
 							ERROR("Size of saved MetaData isn't correct!");
 							return;
 						}
-						memcpy((char*)value + getOffset(), data.getData() + i, byteSize);
+						memcpy((char*)value + getOffset(), buf.getCurrentBuffer(), byteSize);
 						return;
 					}
-					i += skipSize;
+					buf.skip(skipSize);
 				}
 			}
 		private:
@@ -125,37 +129,33 @@ namespace Iris {
 				return std::string_view(data.*m_member, getSize(data));
 			}
 			void loadFromData(C* value, std::string_view name, MetaData& data) {
-				char* metaName = data.getData();
+				Utility::Buffer<char> buf(data.getData(), data.getSize());
 				size_t size;
-				memcpy(&size, data.getData() + strlen(metaName) + 1, sizeof(size_t));
-				char* className = data.getData() + strlen(metaName) + 1 + sizeof(size_t);
-				if (strncmp(className, typeid(C).name(), strlen(className)) != 0 || strlen(className) != strlen(typeid(C).name())) {
+				buf.readData(&size, sizeof(size_t));
+				char* className = buf.readString();
+				if (!Utility::compareString(className, typeid(C).name())) {
 					WARN("Value isn't of same type as provided MetaData!");
-				}
-				for (size_t i = strlen(metaName) + 1 + sizeof(size_t) + strlen(className) + 1; i < data.getSize(); i) {
-					char* typeName = data.getData() + i;
-					i += strlen(typeName) + 1;
-					char* dataName = data.getData() + i;
-					i += strlen(dataName) + 1;
+				};
+				while (buf.getIndex() < data.getSize()) {
+					char* typeName = buf.readString();
+					char* dataName = buf.readString();
 					size_t skipSize;
-					memcpy(&skipSize, data.getData() + i, sizeof(size_t));
-					i += sizeof(size_t);
-					if (strncmp(name.data(), dataName, name.size()) == 0 && name.size() == strlen(dataName)) {
-						if (strncmp(typeName, getName().data(), getName().size()) != 0 || strlen(typeName) != getName().size()) {
+					buf.readData(&skipSize, sizeof(size_t));
+					if (Utility::compareString(name.data(), dataName)) {
+						if (!Utility::compareString(typeName, getName().data())) {
 							WARN("Meta data contains different element types!");
 						}
 						size_t byteSize;
-						memcpy(&byteSize, data.getData() + i, sizeof(size_t));
-						i += sizeof(size_t);
+						buf.readData(&byteSize, sizeof(size_t));
 						if (byteSize != getByteSize()) {
 							ERROR("Size of saved MetaData isn't correct!");
 							return;
 						}
-						char* ptr = (char*)(data.getData() + i);
+						char* ptr = (char*)(buf.getCurrentBuffer());
 						memcpy((char*)value + getOffset(), &ptr, sizeof(const char*));
 						return;
 					}
-					i += skipSize;
+					buf.skip(skipSize);
 				}
 			}
 		private:
@@ -188,33 +188,24 @@ namespace Iris {
 					sizes[sizeIndex] = propSize;
 					sizeIndex++;
 				}
-				char* buf = new char[size] {0};
-				size_t index = 0;
+				Utility::Buffer<char> buf(size);
 				sizeIndex = 0;
-				memcpy(buf + index, (char*)&size, sizeof(size_t));
-				index += sizeof(size_t);
-				memcpy(buf + index, m_name.data(), m_name.size());
-				index += m_name.size() + 1;
+				buf.writeData(&size, sizeof(size_t));
+				buf.writeData(m_name.data(), m_name.size() + 1);
 				for (auto& prop : m_properties) {
 					std::string_view typeName = prop.second->getName();
-					std::string_view name = prop.first;
+					std::string_view propertyName = prop.first;
 					size_t typeSize = prop.second->getByteSize();
-					size_t offset = prop.second->getOffset();
 					std::string_view data = prop.second->getData(value);
-					size_t dataSize = data.size();
-					memcpy(buf + index, typeName.data(), typeName.size());
-					index += typeName.size() + 1;
-					memcpy(buf + index, name.data(), name.size());
-					index += name.size() + 1;
-					memcpy(buf + index, (char*)(sizes + sizeIndex), sizeof(size_t));
-					index += sizeof(size_t);
-					memcpy(buf + index, (char*)&typeSize, sizeof(size_t));
-					index += sizeof(size_t);
-					memcpy(buf + index, data.data(), data.size());
-					index += data.size() + 1;
+					buf.writeData(typeName.data(), typeName.size() + 1);
+					buf.writeData(propertyName.data(), propertyName.size() + 1);
+					buf.writeData(&sizes[sizeIndex], sizeof(size_t));
+					buf.writeData(&typeSize, sizeof(size_t));
+					buf.writeData(data.data(), data.size());
+					buf.skip();
 					sizeIndex++;
 				}
-				return MetaData(buf, size);
+				return MetaData(buf.getBuffer(), size);
 			}
 			void loadFromData(C* value, MetaData& data) {
 				for (auto& prop : m_properties) {
@@ -260,25 +251,20 @@ namespace Iris {
 				return;
 			}
 			size_t amount = s_metaDatas.size();
-			size_t size = 4;
-			size += sizeof(size_t);
+			size_t size = 4 + sizeof(size_t);
+			for (auto& data : s_metaDatas)
+				size += data.first.size() + 1 + data.second.getSize();
+			Utility::Buffer<char> buf(size);
+			buf.writeData("IRIS", 4);
+			buf.writeData(&amount, sizeof(size_t));
 			for (auto& data : s_metaDatas) {
-				size += data.first.size() + 1;
-				size += data.second.getSize();
+				buf.writeData(data.first.data(), data.first.size());
+				buf.skip();
+				buf.writeData(data.second.getData(), data.second.getSize());
 			}
-			char* buf = new char[size] {0};
-			size_t index = 0;
-			memcpy(buf + index, "IRIS", 4);
-			index += 4;
-			memcpy(buf + index, (char*)&amount, sizeof(size_t));
-			index += sizeof(size_t);
-			for (auto& data : s_metaDatas) {
-				memcpy(buf + index, data.first.data(), data.first.size());
-				index += data.first.size() + 1;
-				memcpy(buf + index, data.second.getData(), data.second.getSize());
-				index += data.second.getSize();
-			}
-			fwrite(buf, size, 1, f);
+			fwrite(buf.getBuffer(), buf.getSize(), 1, f);
+			u32 crc = Utility::CRC32(buf.getBuffer(), buf.getSize());
+			fwrite(&crc, sizeof(u32), 1, f);
 			fclose(f);
 			INFO("Saved data to \"{}\".", output);
 		}
@@ -289,26 +275,28 @@ namespace Iris {
 				ERROR("Failed to open input file \"{}\"!", input);
 				return;
 			}
-			size_t size;
-			fseek(f, 0, SEEK_END);
-			size = ftell(f);
-			fseek(f, 0, SEEK_SET);
-			char* buf = new char[size];
-			size_t index = 4;
-			fread(buf, size, 1, f);
+			size_t size = Utility::getFileSize(f) - sizeof(u32);
+			Utility::Buffer<char> buf(size);
+			buf.writeDataFromFile(f, size);
+			u32 savedCRC;
+			fread(&savedCRC, sizeof(u32), 1, f);
 			fclose(f);
-			if (strncmp(buf, "IRIS", 4) != 0) {
+			u32 trueCRC = Utility::CRC32(buf.getBuffer(), buf.getSize());
+			buf.resetIndex();
+			if (!buf.compare("IRIS", 4)) {
 				ERROR("File \"{}\" isn't a valid Iris serializer file!", input);
 				return;
 			}
+			if (savedCRC != trueCRC) {
+				ERROR("File \"{}\" CRC mismatch!", input);
+				return;
+			}
 			size_t amount;
-			memcpy(&amount, buf + index, sizeof(size_t));
-			index += sizeof(size_t);
+			buf.readData(&amount, sizeof(size_t));
 			for (size_t i = 0; i < amount; i++) {
-				char* name = buf + index;
-				index += strlen(name) + 1;
+				char* name = buf.readString();
 				size_t blockSize;
-				memcpy(&blockSize, buf + index, sizeof(size_t));
+				buf.readData(&blockSize, sizeof(size_t), false);
 				if (blockSize > size) {
 					ERROR("MetaData file \"{}\" is corrupted!", input);
 					return;
@@ -317,8 +305,8 @@ namespace Iris {
 				if (s_metaDatas.contains(name)) {
 					WARN("File contains multiple datas with same identificator (\"{}\")!", name);
 				}
-				s_metaDatas.emplace( name, MetaData{ buf + index, blockSize} );
-				index += blockSize;
+				s_metaDatas.emplace(name, MetaData{ buf.getCurrentBuffer(), blockSize});
+				buf.skip(blockSize);
 			}
 		}
 		template <typename C>

@@ -9,11 +9,16 @@ namespace Iris {
 			Sprite(Iris::Renderer::Texture& tex, glm::vec2 scale = { 1.0f, 1.0f }, glm::vec2 anchorPoint = { 0.5f, 0.5f }) 
 				: m_tex(&tex), m_scale(scale), m_rotation(0.0f), m_anchorPoint(anchorPoint) {};
 			void draw(glm::vec2 pos, bool flip = false) {
-				if (Iris::Renderer::s_currentProgram == nullptr) {
-					WARN("Tried drawing without binding any Program");
+				if (Iris::Renderer::s_activeProgram == nullptr) {
+					ERROR("Tried drawing without binding any Program!");
 					return;
 				}
-				Iris::Renderer::s_currentProgram->setInt("albedo", 0);
+				if (&Scene::getActiveCamera() == nullptr) {
+					return;
+				}
+				Iris::Renderer::s_activeProgram->setMatrix4x4("proj", Scene::getActiveCamera().getProjectionMatrix());
+				Iris::Renderer::s_activeProgram->setMatrix4x4("view", Scene::getActiveCamera().getViewMatrix());
+				Iris::Renderer::s_activeProgram->setInt("albedo", 0);
 				m_tex->bind(0);
 				glm::mat4x4 trans = glm::translate(glm::mat4x4(1.0f), glm::vec3(pos.x, pos.y, 0.0f));
 				glm::mat4x4 scale = glm::scale(glm::mat4x4(1.0f), glm::vec3(m_scale.x, m_scale.y, 1.0f));
@@ -21,8 +26,8 @@ namespace Iris {
 				glm::mat4x4 rotationAnchorOffset = glm::translate(glm::mat4x4(1.0f), glm::vec3(-m_anchorPoint.x, -m_anchorPoint.y, 0.0));
 				glm::mat4x4 restoreOffset = glm::translate(glm::mat4x4(1.0f), glm::vec3(m_anchorPoint.x, m_anchorPoint.y, 0.0));
 				glm::mat4x4 model = trans * scale * restoreOffset * rotation * rotationAnchorOffset * glm::mat4x4(1.0f);
-				Iris::Renderer::s_currentProgram->setInt("flip", flip);
-				Iris::Renderer::s_currentProgram->setMatrix4x4("model", model);
+				Iris::Renderer::s_activeProgram->setInt("flip", flip);
+				Iris::Renderer::s_activeProgram->setMatrix4x4("model", model);
 				if (Iris::Renderer::s_quadMesh == nullptr) {
 					ERROR("Quad mesh hasn't been initialized! Didn't initialize the renderer?");
 					return;

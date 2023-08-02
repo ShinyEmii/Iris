@@ -53,10 +53,10 @@ namespace Iris {
 			};
 			s_quadMesh = new Mesh(quadData);
 			return *s_window;
-		} 
+		}
 		Window& getWindow() {
 			if (s_window == nullptr) {
-				ERROR("Window hasn't been created!");
+				ERROR("Window hasn't been created! Accessing it will result in a crash!");
 			}
 			return *s_window;
 		}
