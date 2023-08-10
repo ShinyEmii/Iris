@@ -19,7 +19,7 @@ namespace Iris {
 				Iris::Renderer::s_activeProgram->setMatrix4x4("proj", Scene::getActiveCamera().getProjectionMatrix());
 				Iris::Renderer::s_activeProgram->setMatrix4x4("view", Scene::getActiveCamera().getViewMatrix());
 				Iris::Renderer::s_activeProgram->setInt("albedo", 0);
-				m_tex->bind(0);
+				m_tex->bindTexture(0);
 				glm::mat4x4 model = glm::mat4x4(1.0f);
 				model = glm::translate(model, glm::vec3(pos.x, pos.y, 0.0f));
 				model = glm::scale(model, glm::vec3(m_scale.x, m_scale.y, 1.0f));

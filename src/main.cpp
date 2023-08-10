@@ -38,7 +38,6 @@ using namespace Iris;
 int main() {
 	Renderer::init();
 	Audio::init();
-	//Assets::createPackage("assets.ipk", { "assets/test.dat", "assets/test2.dat" });
 	Assets::createPackage("assets.ipk", { "assets/textures/test.jpg", "assets/shaders/defaultVertex.glsl", "assets/shaders/defaultFrag.glsl", "assets/audio/C418 - Kyoto.wav", "assets/audio/jump.wav" });
 	Renderer::Window& window = Renderer::createWindow(1280, 720);
 	Assets::Package pak = Assets::loadPackage("assets.ipk");
@@ -66,6 +65,7 @@ int main() {
 	Player player;
 	Serializer::loadMetaData("save.isr");
 	Serializer::loadFromMetaData(player, "player");
+	Renderer::Framebuffer frameBuffer{1280, 720};
 	do {
 		IRIS_TIME_SCOPE("Frame Time");
 		player.update(window.getDeltaTime());
@@ -82,11 +82,13 @@ int main() {
 			player.vel.y = -1.2f;
 			jumpSource.forcePlay(jumpSound);
 		}
-
+		frameBuffer.bind();
 		window.clear();
 		defaultProgram.use();
 		bg.draw({ 0, 0 });
 		main.draw(player.pos);
+		frameBuffer.unbind();
+		Renderer::blit(frameBuffer);
 		window.swapBuffers();
 		window.pollEvents();
 	} while (!window.shouldClose() && window.getKey(GLFW_KEY_ESCAPE) == Renderer::KeyState::UP);

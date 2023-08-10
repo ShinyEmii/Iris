@@ -93,7 +93,7 @@ namespace Iris {
 			~Texture() {
 				glDeleteTextures(1, &m_tex);
 			}
-			void bind(u8 id) {
+			void bindTexture(u8 id) {
 				glActiveTexture(GL_TEXTURE0 + id);
 				glBindTexture(GL_TEXTURE_2D, m_tex);
 			}

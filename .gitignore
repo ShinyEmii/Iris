@@ -400,3 +400,4 @@ FodyWeavers.xsd
 *.txt
 Iris.vcxproj.filters
 Iris.vcxproj
+assets/

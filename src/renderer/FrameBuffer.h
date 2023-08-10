@@ -40,6 +40,10 @@ namespace Iris {
 			GLuint getTexture() {
 				return m_tex;
 			};
+			void bindTexture(u8 id) {
+				glActiveTexture(GL_TEXTURE0 + id);
+				glBindTexture(GL_TEXTURE_2D, m_tex);
+			}
 			void rescale(u16 width, u16 height) {
 				glBindTexture(GL_TEXTURE_2D, m_tex);
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);

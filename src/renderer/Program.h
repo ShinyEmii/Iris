@@ -9,11 +9,28 @@ namespace Iris {
 	namespace Renderer {
 		class Program;
 		static Program* s_activeProgram{0};
+		const char* s_blitVertex =
+		"#version 330 core                           \n\
+		layout(location = 0) in vec3 vertex;         \n\
+		layout(location = 1) in vec2 uvs;            \n\
+		out vec2 UV;                                 \n\
+		void main() {                                \n\
+			gl_Position = vec4((vertex - 0.5f) * 2.0f, 1.0f);        \n\
+			UV = clamp(uvs, vec2(0.0f), vec2(1.0f)); \n\
+		}";
+		const char* s_blitFrag =
+		"#version 330 core                           \n\
+		in vec2 UV;                                  \n\
+		uniform sampler2D albedo;                    \n\
+		out vec4 outColor;                           \n\
+		void main() {                                \n\
+			outColor = texture(albedo, UV);          \n\
+		}";
+		static Program* s_blitProgram;
 		class Program {
 		public:
 			Program()
 				: m_id(0) {
-
 			}
 			Program(char* vertexData, char* fragmentData, bool free = true) 
 				: m_id(0) {

@@ -52,6 +52,7 @@ namespace Iris {
 				}
 			};
 			s_quadMesh = new Mesh(quadData);
+			s_blitProgram = new Program((char*)s_blitVertex, (char*)s_blitFrag, false);
 			return *s_window;
 		}
 		Window& getWindow() {
@@ -60,7 +61,6 @@ namespace Iris {
 			}
 			return *s_window;
 		}
-
 		void destroy() {
 			if (s_window != nullptr) {
 				delete s_window;
@@ -69,6 +69,19 @@ namespace Iris {
 				INFO("Successfully destroyed window.");
 			}
 			INFO("Renderer destroyed.");
+		}
+
+		void blit(Texture& tex) {
+			s_blitProgram->use();
+			Iris::Renderer::s_blitProgram->setInt("albedo", 0);
+			tex.bindTexture(0);
+			Iris::Renderer::s_quadMesh->draw();
+		}
+		void blit(Framebuffer& tex) {
+			s_blitProgram->use();
+			Iris::Renderer::s_blitProgram->setInt("albedo", 0);
+			tex.bindTexture(0);
+			Iris::Renderer::s_quadMesh->draw();
 		}
 	}
 }
