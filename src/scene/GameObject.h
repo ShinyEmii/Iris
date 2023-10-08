@@ -1,9 +1,10 @@
 #pragma once
+#include "../logger/Logger.h"
 namespace Iris {
-	namespace Scene {
-		class GameObject {
-			virtual void onUpdate() = 0;
-			virtual void onDraw() = 0;
-		};
-	}
+	class GameObject {
+	public:
+		virtual void onCreate() = 0;
+		virtual void onUpdate() = 0;
+		virtual void onDestroy() = 0;
+	};
 }
